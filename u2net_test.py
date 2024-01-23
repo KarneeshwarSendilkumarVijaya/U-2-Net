@@ -53,7 +53,7 @@ def save_output(image_name, pred, d_dir):
     imo.save(d_dir + imidx + '.png')
 
 
-def main():
+if __name__ == "__main__":
     # --------- 1. get image path and name ---------
     model_name = 'u2net'  # u2netp
 
@@ -77,10 +77,10 @@ def main():
                                         num_workers=1)
 
     # --------- 3. model define ---------
-    if (model_name == 'u2net'):
+    if model_name == 'u2net':
         print("...load U2NET---173.6 MB")
         net = U2NET(3, 1)
-    elif (model_name == 'u2netp'):
+    elif model_name == 'u2netp':
         print("...load U2NEP---4.7 MB")
         net = U2NETP(3, 1)
 
@@ -116,7 +116,3 @@ def main():
         save_output(img_name_list[i_test], pred, prediction_dir)
 
         del d1, d2, d3, d4, d5, d6, d7
-
-
-if __name__ == "__main__":
-    main()
