@@ -117,7 +117,7 @@ class ToTensor(object):
         tmpLbl = np.zeros(label.shape)
 
         image = image / np.max(image)
-        if (np.max(label) < 1e-6):
+        if np.max(label) < 1e-6:
             label = label
         else:
             label = label / np.max(label)
@@ -151,7 +151,7 @@ class ToTensorLab(object):
 
         tmpLbl = np.zeros(label.shape)
 
-        if (np.max(label) < 1e-6):
+        if np.max(label) < 1e-6:
             label = label
         else:
             label = label / np.max(label)
@@ -257,15 +257,15 @@ class SalObjDataset(Dataset):
         imname = self.image_name_list[idx]
         imidx = np.array([idx])
 
-        if (0 == len(self.label_name_list)):
+        if 0 == len(self.label_name_list):
             label_3 = np.zeros(image.shape)
         else:
             label_3 = io.imread(self.label_name_list[idx])
 
         label = np.zeros(label_3.shape[0:2])
-        if (3 == len(label_3.shape)):
+        if 3 == len(label_3.shape):
             label = label_3[:, :, 0]
-        elif (2 == len(label_3.shape)):
+        elif 2 == len(label_3.shape):
             label = label_3
 
         if (3 == len(image.shape) and 2 == len(label.shape)):

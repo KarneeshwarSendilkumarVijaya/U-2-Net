@@ -1,11 +1,8 @@
 import os
-from skimage import io, transform
+from skimage import io
 import torch
-import torchvision
 from torch.autograd import Variable
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torchvision import transforms  # , utils
 # import torch.optim as optim
 
@@ -13,10 +10,9 @@ import numpy as np
 from PIL import Image
 import glob
 
-from data_loader import RescaleT
-from data_loader import ToTensor
-from data_loader import ToTensorLab
-from data_loader import SalObjDataset
+from service.data_loader import RescaleT
+from service.data_loader import ToTensorLab
+from service.data_loader import SalObjDataset
 
 from model import U2NET  # full size version 173.6 MB
 from model import U2NETP  # small version u2net 4.7 MB
@@ -57,9 +53,9 @@ if __name__ == "__main__":
     # --------- 1. get image path and name ---------
     model_name = 'u2net'  # u2netp
 
-    image_dir = os.path.join(os.getcwd(), 'test_data', 'test_images')
-    prediction_dir = os.path.join(os.getcwd(), 'test_data', model_name + '_results' + os.sep)
-    model_dir = os.path.join(os.getcwd(), 'saved_models', model_name, model_name + '.pth')
+    image_dir = os.path.join(os.getcwd(), './test_data', 'test_images')
+    prediction_dir = os.path.join(os.getcwd(), './test_data', model_name + '_results' + os.sep)
+    model_dir = os.path.join(os.getcwd(), './saved_models', model_name, model_name + '.pth')
 
     img_name_list = glob.glob(image_dir + os.sep + '*')
     print(img_name_list)

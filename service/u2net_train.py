@@ -1,25 +1,19 @@
-import os
+import argparse
 import torch
-import torchvision
 from torch.autograd import Variable
 import torch.nn as nn
-import torch.nn.functional as F
 
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
+from torch.utils.data import DataLoader
+from torchvision import transforms
 import torch.optim as optim
-import torchvision.transforms as standard_transforms
 
-import numpy as np
 import glob
 import os
 
-from data_loader import Rescale
-from data_loader import RescaleT
-from data_loader import RandomCrop
-from data_loader import ToTensor
-from data_loader import ToTensorLab
-from data_loader import SalObjDataset
+from service.data_loader import RescaleT
+from service.data_loader import RandomCrop
+from service.data_loader import ToTensorLab
+from service.data_loader import SalObjDataset
 
 from model import U2NET
 from model import U2NETP
@@ -40,8 +34,9 @@ def muti_bce_loss_fusion(d0, d1, d2, d3, d4, d5, d6, labels_v):
 
     loss = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6
     print("l0: %3f, l1: %3f, l2: %3f, l3: %3f, l4: %3f, l5: %3f, l6: %3f\n" % (
-    loss0.data.item(), loss1.data.item(), loss2.data.item(), loss3.data.item(), loss4.data.item(), loss5.data.item(),
-    loss6.data.item()))
+        loss0.data.item(), loss1.data.item(), loss2.data.item(), loss3.data.item(), loss4.data.item(),
+        loss5.data.item(),
+        loss6.data.item()))
 
     return loss0, loss
 
@@ -49,6 +44,11 @@ def muti_bce_loss_fusion(d0, d1, d2, d3, d4, d5, d6, labels_v):
 # ------- 2. set the directory of training dataset --------
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--epoch_num", default=100000, type=int)
+    parser.add_argument("--save_frq", default=2000, type=int)
+    args = parser.parse_args()
+
     model_name = 'u2net'  # 'u2netp'
 
     data_dir = os.path.join(os.getcwd(), 'train_data' + os.sep)
@@ -58,9 +58,9 @@ if __name__ == "__main__":
     image_ext = '.jpg'
     label_ext = '.png'
 
-    model_dir = os.path.join(os.getcwd(), 'saved_models', model_name + os.sep)
+    model_dir = os.path.join(os.getcwd(), './saved_models', model_name + os.sep)
 
-    epoch_num = 100000
+    epoch_num = args.epoch_num
     batch_size_train = 12
     batch_size_val = 1
     train_num = 0
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     running_loss = 0.0
     running_tar_loss = 0.0
     ite_num4val = 0
-    save_frq = 2000  # save the model every 2000 iterations
+    save_frq = args.save_frq  # save the model every 2000 iterations
 
     for epoch in range(0, epoch_num):
         net.train()
