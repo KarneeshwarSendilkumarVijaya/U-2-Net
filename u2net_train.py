@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     model_dir = os.path.join(os.getcwd(), 'saved_models', model_name + os.sep)
 
-    epoch_num = 5
+    epoch_num = 100000
     batch_size_train = 12
     batch_size_val = 1
     train_num = 0
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     running_loss = 0.0
     running_tar_loss = 0.0
     ite_num4val = 0
-    save_frq = 5  # save the model every 2000 iterations
+    save_frq = 2000  # save the model every 2000 iterations
 
     for epoch in range(0, epoch_num):
         net.train()
