@@ -1,26 +1,30 @@
 import argparse
+import heapq
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
-
 from torch.utils.data import DataLoader
 from torchvision import transforms
 import torch.optim as optim
-
 import glob
 import os
-
-from service.data_loader import RescaleT
+from service.data_loader import RescaleT, Rescale
 from service.data_loader import RandomCrop
 from service.data_loader import ToTensorLab
 from service.data_loader import SalObjDataset
+from utils.logger_details import get_logger
 
 from model import U2NET
 from model import U2NETP
+from utils.gcs_io import get_training_files_from_gcs, save_model_to_gcs
+from commons.constants import THRESHOLD, MODEL_SAVE_COUNT, MODEL_CONVERGENCE_COUNT
+
+log = get_logger('__main__')
 
 # ------- 1. define loss function --------
 
 bce_loss = nn.BCELoss(size_average=True)
+best_10_models = []
 
 
 def muti_bce_loss_fusion(d0, d1, d2, d3, d4, d5, d6, labels_v):
@@ -33,7 +37,7 @@ def muti_bce_loss_fusion(d0, d1, d2, d3, d4, d5, d6, labels_v):
     loss6 = bce_loss(d6, labels_v)
 
     loss = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6
-    print("l0: %3f, l1: %3f, l2: %3f, l3: %3f, l4: %3f, l5: %3f, l6: %3f" % (
+    log.info("l0: %3f, l1: %3f, l2: %3f, l3: %3f, l4: %3f, l5: %3f, l6: %3f" % (
         loss0.data.item(), loss1.data.item(), loss2.data.item(), loss3.data.item(), loss4.data.item(),
         loss5.data.item(),
         loss6.data.item()))
@@ -41,49 +45,73 @@ def muti_bce_loss_fusion(d0, d1, d2, d3, d4, d5, d6, labels_v):
     return loss0, loss
 
 
+def model_heap_check(current_model, current_loss):
+    current = (-1*current_loss, current_model)
+
+    if 0 <= len(best_10_models) < MODEL_SAVE_COUNT:
+        heapq.heappush(best_10_models, current)
+        return current_model, None
+
+    while len(best_10_models) > 10:
+        heapq.heappop(best_10_models)
+
+    max = heapq.heappop(best_10_models)
+    max_loss = -1*max[0]
+    max_model = max[1]
+
+    if current_loss < max_loss:
+        heapq.heappush(best_10_models, current)
+        return current_model, max_model
+
+    heapq.heappush(best_10_models, max)
+    return None, None
+
+
 # ------- 2. set the directory of training dataset --------
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epoch_num", default=100000, type=int)
+    parser.add_argument("--epochs", default=100000, type=int)
     parser.add_argument("--save_frq", default=2000, type=int)
+    parser.add_argument("--datasets", default="xsmall")
+    parser.add_argument("--model_name", default="u2net")
+    parser.add_argument("--batch_size", default=12, type=int)
+    # parser.add_argument("--load_from_gcs", default=False)
     args = parser.parse_args()
 
-    model_name = 'u2net'  # 'u2netp'
+    log.info(f"Epoch = {args.epochs}")
+    log.info(f"Save Frequency = {args.save_frq}")
+    log.info(f"Dataset = {args.datasets}")
+    log.info(f"Model Name = {args.model_name}")
+    log.info(f"Batch Size = {args.batch_size}")
 
-    data_dir = os.path.join(os.getcwd(), '../train_data' + os.sep)
-    tra_image_dir = os.path.join('DUTS', 'DUTS-TR', 'DUTS-TR', 'im_aug' + os.sep)
-    tra_label_dir = os.path.join('DUTS', 'DUTS-TR', 'DUTS-TR', 'gt_aug' + os.sep)
+    model_name = args.model_name  # 'u2net' or 'u2netp'
+
+    # data_dir = os.path.join(os.getcwd(), '../train_data' + os.sep)
+    # tra_image_dir = os.path.join('DUTS', 'DUTS-TR', 'DUTS-TR', 'im_aug' + os.sep)
+    # tra_label_dir = os.path.join('DUTS', 'DUTS-TR', 'DUTS-TR', 'gt_aug' + os.sep)
 
     image_ext = '.jpg'
     label_ext = '.png'
 
     model_dir = os.path.join(os.getcwd(), '../saved_models', model_name + os.sep)
 
-    epoch_num = args.epoch_num
-    batch_size_train = 12
+    epoch_num = args.epochs
+    dataset = args.datasets
+    batch_size_train = args.batch_size
     batch_size_val = 1
     train_num = 0
     val_num = 0
 
-    tra_img_name_list = glob.glob(data_dir + tra_image_dir + '*' + image_ext)
+    # tra_img_name_list = glob.glob(data_dir + tra_image_dir + '*' + image_ext)
+    # tra_lbl_name_list = glob.glob(data_dir + tra_label_dir + '*' + label_ext)
+    #
+    tra_img_name_list, tra_lbl_name_list = get_training_files_from_gcs(dataset)
 
-    tra_lbl_name_list = []
-    for img_path in tra_img_name_list:
-        img_name = img_path.split(os.sep)[-1]
-
-        aaa = img_name.split(".")
-        bbb = aaa[0:-1]
-        imidx = bbb[0]
-        for i in range(1, len(bbb)):
-            imidx = imidx + "." + bbb[i]
-
-        tra_lbl_name_list.append(data_dir + tra_label_dir + imidx + label_ext)
-
-    print("---")
-    print("train images: ", len(tra_img_name_list))
-    print("train labels: ", len(tra_lbl_name_list))
-    print("---")
+    log.info("---")
+    log.info(f"train images: {len(tra_img_name_list)}")
+    log.info(f"train labels: {len(tra_lbl_name_list)}")
+    log.info("---")
 
     train_num = len(tra_img_name_list)
 
@@ -92,7 +120,10 @@ if __name__ == "__main__":
         lbl_name_list=tra_lbl_name_list,
         transform=transforms.Compose([
             RescaleT(320),
-            RandomCrop(288),
+            # RandomCrop(288), # no need to crop
+            # randomFlip
+            # random rotation 5deg
+            # contrast and brightness augmentation
             ToTensorLab(flag=0)]))
     salobj_dataloader = DataLoader(salobj_dataset, batch_size=batch_size_train, shuffle=True, num_workers=1)
 
@@ -107,16 +138,18 @@ if __name__ == "__main__":
         net.cuda()
 
     # ------- 4. define optimizer --------
-    print("---define optimizer...")
+    log.info("---define optimizer...")
     optimizer = optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
 
     # ------- 5. training process --------
-    print("---start training...")
+    log.info("---start training...")
     ite_num = 0
     running_loss = 0.0
     running_tar_loss = 0.0
     ite_num4val = 0
     save_frq = args.save_frq  # save the model every 2000 iterations
+    last_10_loss = []
+    convergence = False
 
     for epoch in range(0, epoch_num):
         net.train()
@@ -154,14 +187,32 @@ if __name__ == "__main__":
             # del temporary outputs and loss
             del d0, d1, d2, d3, d4, d5, d6, loss2, loss
 
-            print("[epoch: %3d/%3d, batch: %5d/%5d, ite: %d] train loss: %3f, tar: %3f \n" % (
+            log.info("[epoch: %3d/%3d, batch: %5d/%5d, ite: %d] train loss: %3f, tar: %3f \n" % (
                 epoch + 1, epoch_num, (i + 1) * batch_size_train, train_num, ite_num, running_loss / ite_num4val,
                 running_tar_loss / ite_num4val))
 
             if ite_num % save_frq == 0:
-                torch.save(net.state_dict(), model_dir + model_name + "_bce_itr_%d_train_%3f_tar_%3f.pth" % (
-                    ite_num, running_loss / ite_num4val, running_tar_loss / ite_num4val))
+                model_to_save, model_to_delete = model_heap_check(model_name + "_bce_itr_%d_train_%3f_tar_%3f.pth" % (
+                    ite_num, running_loss / ite_num4val, running_tar_loss / ite_num4val), running_tar_loss / ite_num4val)
+                log.info("saving model = %s" % model_to_save)
+                log.info("deleting model = %s" % model_to_delete)
+                if model_to_save is not None:
+                    save_model_to_gcs(net, model_to_save, model_to_delete)
+                # torch.save(net.state_dict(), model_dir + model_name + "_bce_itr_%d_train_%3f_tar_%3f.pth" % (
+                #     ite_num, running_loss / ite_num4val, running_tar_loss / ite_num4val))
+
+                last_10_loss.append(running_tar_loss / ite_num4val)
+                if len(last_10_loss) > MODEL_CONVERGENCE_COUNT:
+                    last_10_loss.pop(0)
+                if len(last_10_loss) == MODEL_CONVERGENCE_COUNT:
+                    if all(abs(running_tar_loss - last_10_loss[j]) < THRESHOLD for j in range(1, len(last_10_loss))):
+                        convergence = True
+                        break
+
                 running_loss = 0.0
                 running_tar_loss = 0.0
                 net.train()  # resume train
                 ite_num4val = 0
+
+        if convergence:
+            break

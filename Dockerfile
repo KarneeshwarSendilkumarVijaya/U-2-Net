@@ -1,7 +1,7 @@
 # build
 #FROM gcr.io/deeplearning-platform-release/tf-gpu.2-11.py310:latest AS build
 #FROM us-docker.pkg.dev/vertex-ai/training/tf-gpu.2-11.py310:latest As build
-FROM us-docker.pkg.dev/vertex-ai/training/tf-gpu.2-8.py310:latest AS build
+FROM us-docker.pkg.dev/vertex-ai/training/pytorch-gpu.1-13.py310:latest AS build
 ARG COPART_DIR="/opt/copart/"
 ARG APP_NAME="u2net-model-train-gcp"
 ARG APP_DIR="${COPART_DIR}${APP_NAME}"
@@ -43,11 +43,13 @@ ENV PYTHONPATH="${APP_DIR}/libs"
 
 
 # copy application
+COPY ./commons ${APP_DIR}/commons
 COPY ./model ${APP_DIR}/model
 COPY ./saved_models ${APP_DIR}/saved_models
 COPY ./service ${APP_DIR}/service
 COPY ./test_data ${APP_DIR}/test_data
 COPY ./train_data ${APP_DIR}/train_data
+COPY ./utils ${APP_DIR}/utils
 COPY ./boot.sh ${APP_DIR}/boot.sh
 
 # COPY --chown=lidstrainservcie ./service ${APP_DIR}/service
@@ -58,4 +60,5 @@ COPY ./boot.sh ${APP_DIR}/boot.sh
 
 RUN chmod +x ${APP_DIR}/boot.sh
 
-ENTRYPOINT ["./boot.sh"]
+ENTRYPOINT ["python", "-m", "service.u2net_train"]
+#ENTRYPOINT ["./boot.sh"]

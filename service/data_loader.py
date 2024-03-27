@@ -1,7 +1,10 @@
 # data loader
 from __future__ import print_function, division
 import glob
+
 import torch
+from google.cloud import storage
+import imageio.v2 as imageio
 from skimage import io, transform, color
 import numpy as np
 import random
@@ -10,6 +13,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from PIL import Image
+from commons.constants import PROJECT, GCS_BUCKET
 
 
 # ==========================dataset load==========================
@@ -244,23 +248,28 @@ class SalObjDataset(Dataset):
         self.image_name_list = img_name_list
         self.label_name_list = lbl_name_list
         self.transform = transform
+        self.gcs_client = storage.Client(project=PROJECT)
+        self.bucket = self.gcs_client.bucket(GCS_BUCKET)
 
     def __len__(self):
         return len(self.image_name_list)
 
     def __getitem__(self, idx):
 
-        # image = Image.open(self.image_name_list[idx])#io.imread(self.image_name_list[idx])
-        # label = Image.open(self.label_name_list[idx])#io.imread(self.label_name_list[idx])
-
-        image = io.imread(self.image_name_list[idx])
+        image_blob = self.bucket.blob(self.image_name_list[idx])
+        image_bytes = image_blob.download_as_bytes()
+        image = imageio.imread(image_bytes)
+        # image = io.imread(self.image_name_list[idx])
         imname = self.image_name_list[idx]
         imidx = np.array([idx])
 
         if 0 == len(self.label_name_list):
             label_3 = np.zeros(image.shape)
         else:
-            label_3 = io.imread(self.label_name_list[idx])
+            label_blob = self.bucket.blob(self.label_name_list[idx])
+            label_bytes = label_blob.download_as_bytes()
+            label_3 = imageio.imread(label_bytes)
+            # label_3 = io.imread(self.label_name_list[idx])
 
         label = np.zeros(label_3.shape[0:2])
         if 3 == len(label_3.shape):
@@ -268,9 +277,9 @@ class SalObjDataset(Dataset):
         elif 2 == len(label_3.shape):
             label = label_3
 
-        if (3 == len(image.shape) and 2 == len(label.shape)):
+        if 3 == len(image.shape) and 2 == len(label.shape):
             label = label[:, :, np.newaxis]
-        elif (2 == len(image.shape) and 2 == len(label.shape)):
+        elif 2 == len(image.shape) and 2 == len(label.shape):
             image = image[:, :, np.newaxis]
             label = label[:, :, np.newaxis]
 

@@ -51,11 +51,12 @@ def save_output(image_name, pred, d_dir):
 
 if __name__ == "__main__":
     # --------- 1. get image path and name ---------
-    model_name = 'u2net'  # u2netp
+    model_name_dir = 'u2net'  # u2netp
+    model_name = 'u2net'
 
-    image_dir = os.path.join(os.getcwd(), './test_data', 'test_images')
-    prediction_dir = os.path.join(os.getcwd(), './test_data', model_name + '_results' + os.sep)
-    model_dir = os.path.join(os.getcwd(), './saved_models', model_name, model_name + '.pth')
+    image_dir = os.path.join(os.getcwd(), '../test_data', 'test_images')
+    prediction_dir = os.path.join(os.getcwd(), '../test_data', model_name_dir + '_results' + os.sep)
+    model_dir = os.path.join(os.getcwd(), '../saved_models', model_name_dir, model_name + '.pth')
 
     img_name_list = glob.glob(image_dir + os.sep + '*')
     print(img_name_list)

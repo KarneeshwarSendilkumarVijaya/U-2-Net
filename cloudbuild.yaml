@@ -1,0 +1,5 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: [ 'build', '-t', 'us-west4-docker.pkg.dev/cprtqa-datascience-sp1/u2net-training-repo/u2net-model-training-gpu:latest', '.' ]
+images:
+- 'us-west4-docker.pkg.dev/cprtqa-datascience-sp1/u2net-training-repo/u2net-model-training-gpu:latest'

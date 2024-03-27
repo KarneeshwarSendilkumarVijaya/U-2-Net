@@ -1,0 +1,25 @@
+workerPoolSpecs:
+    machineSpec:
+        machineType: n1-standard-32
+        acceleratorType: NVIDIA_TESLA_T4
+        acceleratorCount: 2
+    replicaCount: 1
+    containerSpec:
+        imageUri: us-west4-docker.pkg.dev/cprtqa-datascience-sp1/u2net-training-repo/u2net-model-training-gpu:latest
+        args:
+            - --model_name
+            - ${MODEL_NAME}
+            - --datasets
+            - ${DATASETS}
+            - --epochs
+            - ${EPOCHS}
+            - --save_frq
+            - ${SAVE_FRQ}
+            - --batch_size
+            - ${BATCH_SIZE}
+#            - --load_from_gcs
+#            - --hyper_tune
+baseOutputDirectory:
+    outputUriPrefix: gs://cprt_u2net_data/artifacts/${MODEL_NAME}-${CURRENT_TIME}
+#tensorboard: projects/989060943496/locations/us-west4/tensorboards/2901400079468331008
+serviceAccount: 534677253009-compute@developer.gserviceaccount.com
