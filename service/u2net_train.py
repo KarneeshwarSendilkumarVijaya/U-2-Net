@@ -94,7 +94,7 @@ if __name__ == "__main__":
     image_ext = '.jpg'
     label_ext = '.png'
 
-    model_dir = os.path.join(os.getcwd(), '../saved_models', model_name + os.sep)
+    # model_dir = os.path.join(os.getcwd(), '../saved_models', model_name + os.sep)
 
     epoch_num = args.epochs
     dataset = args.datasets
