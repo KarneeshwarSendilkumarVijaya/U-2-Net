@@ -47,8 +47,8 @@ COPY ./commons ${APP_DIR}/commons
 COPY ./model ${APP_DIR}/model
 COPY ./saved_models ${APP_DIR}/saved_models
 COPY ./service ${APP_DIR}/service
-COPY ./test_data ${APP_DIR}/test_data
-COPY ./train_data ${APP_DIR}/train_data
+#COPY ./test_data ${APP_DIR}/test_data
+#COPY ./train_data ${APP_DIR}/train_data
 COPY ./utils ${APP_DIR}/utils
 COPY ./boot.sh ${APP_DIR}/boot.sh
 

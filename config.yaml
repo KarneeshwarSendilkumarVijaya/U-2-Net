@@ -7,6 +7,10 @@ workerPoolSpecs:
     containerSpec:
         imageUri: us-west4-docker.pkg.dev/cprtqa-datascience-sp1/u2net-training-repo/u2net-model-training-gpu:latest
         args:
+            - --existing_model
+            - ${EXISTING_MODEL}
+            - --best_model_name
+            - ${BEST_MODEL_NAME}
             - --model_name
             - ${MODEL_NAME}
             - --datasets

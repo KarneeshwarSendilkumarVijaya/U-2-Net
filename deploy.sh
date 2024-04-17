@@ -1,9 +1,11 @@
 #!/bin/bash
 
 export MODEL_NAME="u2net"
-export DATASETS="xsmall"
+export EXISTING_MODEL="pretrained"
+export BEST_MODEL_NAME="None"
+export DATASETS="large"
 export EPOCHS="'100000'"
-export SAVE_FRQ="'2000'"
+export SAVE_FRQ="'100'"
 export BATCH_SIZE="'12'"
 export CURRENT_TIME=$(date +"%Y%m%d%H%M%S")
 

@@ -16,8 +16,9 @@ from utils.logger_details import get_logger
 
 from model import U2NET
 from model import U2NETP
-from utils.gcs_io import get_training_files_from_gcs, save_model_to_gcs
+from utils.gcs_io import get_training_files_from_gcs, save_model_to_gcs, download_blob_from_gcs
 from commons.constants import THRESHOLD, MODEL_SAVE_COUNT, MODEL_CONVERGENCE_COUNT
+from commons.constants import PRETRAINED_MODEL_FOLDER, BEST_MODEL_FOLDER, GCS_BUCKET, LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL
 
 log = get_logger('__main__')
 
@@ -76,15 +77,21 @@ if __name__ == "__main__":
     parser.add_argument("--datasets", default="xsmall")
     parser.add_argument("--model_name", default="u2net")
     parser.add_argument("--batch_size", default=12, type=int)
+    parser.add_argument("--existing_model", default='', required=False) # pretrained or best
+    parser.add_argument("--best_model_name", default='', required=False)
     # parser.add_argument("--load_from_gcs", default=False)
     args = parser.parse_args()
 
-    log.info(f"Epoch = {args.epochs}")
-    log.info(f"Save Frequency = {args.save_frq}")
-    log.info(f"Dataset = {args.datasets}")
-    log.info(f"Model Name = {args.model_name}")
-    log.info(f"Batch Size = {args.batch_size}")
+    log.info(f"Epoch = {args.epochs}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
+    log.info(f"Save Frequency = {args.save_frq}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
+    log.info(f"Dataset = {args.datasets}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
+    log.info(f"Model Name = {args.model_name}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
+    log.info(f"Batch Size = {args.batch_size}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
+    log.info(f"Existing Model = {args.existing_model}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
+    log.info(f"Best Model Name = {args.best_model_name}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
 
+    existing_model = args.existing_model
+    best_model_name = args.best_model_name
     model_name = args.model_name  # 'u2net' or 'u2netp'
 
     # data_dir = os.path.join(os.getcwd(), '../train_data' + os.sep)
@@ -109,8 +116,8 @@ if __name__ == "__main__":
     tra_img_name_list, tra_lbl_name_list = get_training_files_from_gcs(dataset)
 
     log.info("---")
-    log.info(f"train images: {len(tra_img_name_list)}")
-    log.info(f"train labels: {len(tra_lbl_name_list)}")
+    log.info(f"train images: {len(tra_img_name_list)}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
+    log.info(f"train labels: {len(tra_lbl_name_list)}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
     log.info("---")
 
     train_num = len(tra_img_name_list)
@@ -121,9 +128,6 @@ if __name__ == "__main__":
         transform=transforms.Compose([
             RescaleT(320),
             # RandomCrop(288), # no need to crop
-            # randomFlip
-            # random rotation 5deg
-            # contrast and brightness augmentation
             ToTensorLab(flag=0)]))
     salobj_dataloader = DataLoader(salobj_dataset, batch_size=batch_size_train, shuffle=True, num_workers=1)
 
@@ -133,6 +137,15 @@ if __name__ == "__main__":
         net = U2NET(3, 1)
     elif model_name == 'u2netp':
         net = U2NETP(3, 1)
+
+    if existing_model == 'pretrained':
+        log.info("Loading pretrained model".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
+        download_blob_from_gcs('pretrained_model.pth', f'{PRETRAINED_MODEL_FOLDER}/u2net.pth')
+        net.load_state_dict(torch.load('pretrained_model.pth'))
+    elif existing_model == 'best':
+        log.info("Loading best model".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
+        download_blob_from_gcs('best_model.pth', f'{BEST_MODEL_FOLDER}/{best_model_name}')
+        net.load_state_dict(torch.load('best_model.pth'))
 
     if torch.cuda.is_available():
         net.cuda()
@@ -194,8 +207,8 @@ if __name__ == "__main__":
             if ite_num % save_frq == 0:
                 model_to_save, model_to_delete = model_heap_check(model_name + "_bce_itr_%d_train_%3f_tar_%3f.pth" % (
                     ite_num, running_loss / ite_num4val, running_tar_loss / ite_num4val), running_tar_loss / ite_num4val)
-                log.info("saving model = %s" % model_to_save)
-                log.info("deleting model = %s" % model_to_delete)
+                log.info(f"saving model = {model_to_save}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
+                log.info(f"deleting model = {model_to_delete}".center(LOG_PADDING_WIDTH, LOG_PADDING_SYMBOL))
                 if model_to_save is not None:
                     save_model_to_gcs(net, model_to_save, model_to_delete)
                 # torch.save(net.state_dict(), model_dir + model_name + "_bce_itr_%d_train_%3f_tar_%3f.pth" % (
@@ -205,7 +218,7 @@ if __name__ == "__main__":
                 if len(last_10_loss) > MODEL_CONVERGENCE_COUNT:
                     last_10_loss.pop(0)
                 if len(last_10_loss) == MODEL_CONVERGENCE_COUNT:
-                    if all(abs(running_tar_loss - last_10_loss[j]) < THRESHOLD for j in range(1, len(last_10_loss))):
+                    if all(abs(running_tar_loss / ite_num4val - last_10_loss[j]) < THRESHOLD for j in range(1, len(last_10_loss))):
                         convergence = True
                         break
 

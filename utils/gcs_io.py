@@ -5,6 +5,13 @@ from commons.constants import PROJECT, GCS_BUCKET, TRAINING_FOLDER, MODEL_CHECKP
 import torch
 
 
+def download_blob_from_gcs(filename, path):
+    gcs_client = storage.Client(project=PROJECT)
+    bucket = gcs_client.bucket(GCS_BUCKET)
+    blob = bucket.blob(path)
+    blob.download_to_filename(f'./{filename}')
+
+
 def get_training_files_from_gcs(dataset, image_ext='.jpg', label_ext='.png'):
     gcs_client = storage.Client(project=PROJECT)
     bucket = gcs_client.bucket(GCS_BUCKET)
@@ -16,7 +23,7 @@ def get_training_files_from_gcs(dataset, image_ext='.jpg', label_ext='.png'):
 
     blobs = bucket.list_blobs(prefix=prefix)
     tra_img_name_list = [f"{blob.name}" for blob in blobs]
-    tra_img_name_list = tra_img_name_list[1:]
+    tra_img_name_list = tra_img_name_list[0:]
 
     for img_path in tra_img_name_list:
         img_name_extension = img_path.split('/')[-1]
